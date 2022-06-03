@@ -21,7 +21,7 @@ mutable struct Scenario{T}
     end
 end
 
-""" update simulation result """
+""" Update simulation result """
 function update!(f::Scenario, pₒ, x, C, k, forecast)
     if length(f.x) == 0
         dx = 0
@@ -47,7 +47,7 @@ function update!(f::Scenario, pₒ, x, C, k, forecast)
     push!(f.y, k / x)
     push!(f.funding, funding)
     push!(f.op_cost, op_cost)
-    push!(f.revenue, -funding - op_cost)
+    push!(f.revenue, -funding - max.(op_cost, 0))
     push!(f.unit_slippage, 1 / (x + 1))
     push!(f.divergence, (pₘ - pₒ) / pₒ)
     push!(f.forecasts, forecast)

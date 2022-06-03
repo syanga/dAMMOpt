@@ -1,9 +1,10 @@
 
 """ MPC policy """
 function make_price_tracker_policy(base_diag_cost, lookahead, λ_k; solver=ECOS.Optimizer)
-    @assert lookahead > 0
+    @assert lookahead > 0   
     @assert length(base_diag_cost) == 4
-    function mpc_policy(Cₜ, kₜ, p̂ₒ, x̂, est_net_position)
+    function mpc_policy(res, forecast, est_net_position)
+        Cₜ, kₜ, p̂ₒ, x̂ = res.C[end], res.k[end], forecast[:, 4], forecast[:, 2]
         # nominal trajectories k̂, Ĉ
         k̂ = [kₜ + λ_k * τ for τ = 0:lookahead]
         Ĉ = vcat(Cₜ, [p̂ₒ[τ] * x̂[τ]^2 / k̂[τ] for τ = 2:lookahead+1])

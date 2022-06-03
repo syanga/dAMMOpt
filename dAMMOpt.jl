@@ -2,16 +2,40 @@ using LinearAlgebra, Statistics, Convex, ECOS, Plots
 
 include("Scenario.jl")
 include("Simulator.jl")
+include("MPC.jl")
+
 
 T = 1000
-forecast_length = 5
+forecast_length = 20
+base_diag_cost, lookahead, λ_k = ones(4) * 1e-6, 10, 10   
+
+policies = [
+  ("do_nothing", ad_hoc_policy(false, false)),
+  ("adhoc_adjust_C", ad_hoc_policy(true, false)),
+  ("adhoc_adjust_k", ad_hoc_policy(false, true)),
+  ("adhoc_adjust_both", ad_hoc_policy(true, true)),
+  ("mpc_price_tracker", make_price_tracker_policy(base_diag_cost, lookahead, λ_k))
+]
+
+idx = 1
+name, policy = policies[idx]
 f = PerpSimulator(1.0, 1e-1, 5.0, 1e-1)
 po = sample_oracle_price(f, 100, T)
-res = simulate(f, po, 300; policy=ad_hoc_policy(false, false), forecast_length=forecast_length)
+
+res = simulate(f, po, 300; policy=policy, forecast_length=forecast_length)
+res_mpc = simulate(f, po, 300; policy=policies[5][2], forecast_length=forecast_length)
 
 plot(res.mark, label = "mark")
 plot!(res.oracle, label = "oracle")
-savefig("assets/mark_vs_oracle.png")
+xlabel!("Time")
+ylabel!("Price")
+savefig("assets/$(name)_mark_vs_oracle.png")
+
+plot(res_mpc.mark, label = "mark")
+plot!(res_mpc.oracle, label = "oracle")
+xlabel!("Time")
+ylabel!("Price")
+savefig("assets/$(policies[5][1])_mark_vs_oracle.png")
 
 plot(res.net_position, label = "net position (long - short)")
 plot!(res.divergence * 10, label = "scaled and signed price divergence")
@@ -41,16 +65,7 @@ for (i,l) = enumerate(labels)
   savefig("assets/forecast_$(l).png")
 end
 
-policies = [
-  ("do_nothing", ad_hoc_policy(false, false)),
-  ("adhoc_adjust_C", ad_hoc_policy(true, false)),
-  ("adhoc_adjust_k", ad_hoc_policy(false, true)),
-  ("adhoc_adjust_both", ad_hoc_policy(true, true))
-]
-
-function evaluate(policies; num_oracle_trajectories=1000)
-  T = 1000
-  forecast_length = 5
+function evaluate(policies; num_oracle_trajectories=10, forecast_length=20, T=1000)
   f = PerpSimulator(1.0, 1e-1, 5.0, 1e-1)
   metrics = Dict()
   for (name, _) = policies
@@ -80,4 +95,5 @@ function _metrics(res)
   mean_slippage = mean(res.unit_slippage)
   return [rev, mean_abs_div, mean_slippage]
 end
+
 
